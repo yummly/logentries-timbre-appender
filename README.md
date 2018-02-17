@@ -1,5 +1,7 @@
 # logentries-timbre-appender
 
+[![Build Status](https://travis-ci.org/yummly/logentries-timbre-appender.svg?branch=master)](https://travis-ci.org/yummly/logentries-timbre-appender)
+
 A logger for [logentries](https://logentries.com/) for use with [timbre](https://github.com/ptaoussanis/timbre/).
 
 ## Usage
