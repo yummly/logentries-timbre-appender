@@ -9,7 +9,9 @@
                  [com.taoensso/timbre "4.10.0"]
                  [cheshire "5.8.0"]
                  [io.aviso/pretty     "0.1.33"]]
-  :profiles {:1.8 {:dependencies [[org.clojure/clojure "1.8.0"]]}
+  :profiles {:1.7 {:dependencies [[org.clojure/clojure "1.7.0"]]}
+             :1.8 {:dependencies [[org.clojure/clojure "1.8.0"]]}
              :1.9 {:dependencies [[org.clojure/clojure "1.9.0"]]}}
   :global-vars {*warn-on-reflection* true
-                *assert*             true})
+                *assert*             true}
+  :aliases {"test-all" ["with-profile" "+1.7:+1.8:+1.9" "test"]})

@@ -1,5 +1,5 @@
 (ns yummly.logentries-timbre-appender-test
-  (:require [com.yummly.logentries-timbre-appender :as sut]
+  (:require [yummly.logentries-timbre-appender :as sut]
             [clojure.test :refer :all]
             [clojure.string]
             [cheshire.core :as cheshire]))
