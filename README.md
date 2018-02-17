@@ -5,8 +5,11 @@ A logger for [logentries](https://logentries.com/) for use with [timbre](https:/
 ## Usage
 
 ``` clojure
-(timbre/set-config! {:appenders {:logentries (logentries-appender "my-logentries-log-token"
-                                                                  {:user-tags {:any-random "values you want to add to every message"}})}})
+(timbre/set-config!
+ {:appenders
+  {:logentries
+   (logentries-appender "my-logentries-log-token"
+                        {:user-tags {:any-random "values you want to add to every message"}})}})
 ```
 
 ## License
