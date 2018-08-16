@@ -87,16 +87,16 @@
      :output-fn  :inherit
      :fn
      (fn [data]
-       (try
-         (let [[sock out] (swap! conn
-                                 (fn [conn]
-                                   (or (and conn (connection-ok? conn) conn)
-                                       (connect "data.logentries.com" 80))))]
-           (locking sock
-             (.write ^java.io.Writer out token)
-             (data->json-stream data out (:user-tags opts) stacktrace-fn)
-             ;; logstash tcp input plugin: "each event is assumed to be one line of text".
-             (.write ^java.io.Writer out nl)
-             (when flush? (.flush ^java.io.Writer out))))
+       (try (let [[sock out] (swap! conn
+                                    (fn [conn]
+                                      (or (and conn (connection-ok? conn) conn)
+                                          (connect "data.logentries.com" 80))))]
+              (locking sock
+                (.write ^java.io.Writer out token)
+                (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
+                     (finally
+                       ;; logstash tcp input plugin: "each event is assumed to be one line of text".
+                       (.write ^java.io.Writer out nl)
+                       (when flush? (.flush ^java.io.Writer out))))))
          (catch java.io.IOException _
            nil)))}))
