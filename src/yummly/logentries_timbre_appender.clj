@@ -38,8 +38,14 @@
   (when e
     (binding [io.aviso.exception/*fonts* nil]
       (let [errors (io.aviso.exception/analyze-exception e {})]
-        (try (mapv #(update % :stack-trace (fn [stack-trace]
-                                             (into [] stack-trace-processor stack-trace)))
+        (try (mapv #(-> %
+                        (update :stack-trace (fn [stack-trace]
+                                               (into [] stack-trace-processor stack-trace)))
+                        ;; :properties can contain values unknown to
+                        ;; cheshire, so just drop it if it exists so
+                        ;; the log message is less likely to fail to
+                        ;; be converted to json
+                        (dissoc :properties))
                    errors)
              (catch Exception e
                (remove :omitted errors)))))))
@@ -81,16 +87,16 @@
      :output-fn  :inherit
      :fn
      (fn [data]
-       (try
-         (let [[sock out] (swap! conn
-                                 (fn [conn]
-                                   (or (and conn (connection-ok? conn) conn)
-                                       (connect "data.logentries.com" 80))))]
-           (locking sock
-             (.write ^java.io.Writer out token)
-             (data->json-stream data out (:user-tags opts) stacktrace-fn)
-             ;; logstash tcp input plugin: "each event is assumed to be one line of text".
-             (.write ^java.io.Writer out nl)
-             (when flush? (.flush ^java.io.Writer out))))
+       (try (let [[sock out] (swap! conn
+                                    (fn [conn]
+                                      (or (and conn (connection-ok? conn) conn)
+                                          (connect "data.logentries.com" 80))))]
+              (locking sock
+                (.write ^java.io.Writer out token)
+                (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
+                     (finally
+                       ;; logstash tcp input plugin: "each event is assumed to be one line of text".
+                       (.write ^java.io.Writer out nl)
+                       (when flush? (.flush ^java.io.Writer out))))))
          (catch java.io.IOException _
            nil)))}))
