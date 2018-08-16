@@ -38,8 +38,14 @@
   (when e
     (binding [io.aviso.exception/*fonts* nil]
       (let [errors (io.aviso.exception/analyze-exception e {})]
-        (try (mapv #(update % :stack-trace (fn [stack-trace]
-                                             (into [] stack-trace-processor stack-trace)))
+        (try (mapv #(-> %
+                        (update :stack-trace (fn [stack-trace]
+                                               (into [] stack-trace-processor stack-trace)))
+                        ;; :properties can contain values unknown to
+                        ;; cheshire, so just drop it if it exists so
+                        ;; the log message is less likely to fail to
+                        ;; be converted to json
+                        (dissoc :properties))
                    errors)
              (catch Exception e
                (remove :omitted errors)))))))
