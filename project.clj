@@ -1,4 +1,4 @@
-(defproject yummly/logentries-timbre-appender "0.1.1"
+(defproject yummly/logentries-timbre-appender "0.1.2-SNAPSHOT"
   :description "Timbre appender for logentries.com"
   :url "http://example.com/FIXME"
   :license {:name         "Eclipse Public License"
