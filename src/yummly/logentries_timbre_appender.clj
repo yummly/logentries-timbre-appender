@@ -2,8 +2,7 @@
   "Appender that sends output to Logentries (https://logentries.com/). Based of the logstash 3rd party appender.
    Requires Cheshire (https://github.com/dakrone/cheshire)."
   {:author "Ryan Smith (@tanzoniteblack), Mike Sperber (@mikesperber), David Frese (@dfrese)"}
-  (:require [taoensso.timbre :as timbre]
-            [cheshire.core :as cheshire]
+  (:require [cheshire.core :as cheshire]
             [io.aviso.exception]
             [clojure.string])
   (:import  [java.net Socket InetAddress]
@@ -73,13 +72,19 @@
   logentries server. Set `:flush?` to true to flush the writer after every
   event. If you wish to send additional, custom tags, to logentries on each
   logging event, then provide a hash-map in the opts `:user-tags` which will be
-  merged into each event."
+  merged into each event.
+
+  Defaults to sending logs to logentries, but the URL data is sent to can be overwritten
+  via `:log-ingest-url` and `:log-ingest-port` to send to any other service that works in
+  the format `<TOKEN> MESSAGE>`, like datadog."
   [token & [opts]]
-  (let [conn          (atom nil)
-        flush?        (or (:flush? opts) false)
-        nl            "\n"
-        token         (str token " ")
-        stacktrace-fn (:stack-trace-fn opts error-to-stacktrace)]
+  (let [conn            (atom nil)
+        flush?          (or (:flush? opts) false)
+        nl              "\n"
+        token           (str token " ")
+        stacktrace-fn   (:stack-trace-fn opts error-to-stacktrace)
+        log-ingest-url  (:log-ingest-url opts "data.logentries.com")
+        log-ingest-port (:log-ingest-port opts 80)]
     {:enabled?   true
      :async?     false
      :min-level  nil
@@ -90,7 +95,7 @@
        (try (let [[sock out] (swap! conn
                                     (fn [conn]
                                       (or (and conn (connection-ok? conn) conn)
-                                          (connect "data.logentries.com" 80))))]
+                                          (connect log-ingest-url log-ingest-port))))]
               (locking sock
                 (.write ^java.io.Writer out token)
                 (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
