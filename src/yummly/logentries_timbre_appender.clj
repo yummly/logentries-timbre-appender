@@ -5,13 +5,16 @@
   (:require [cheshire.core :as cheshire]
             [io.aviso.exception]
             [clojure.string])
-  (:import  [java.net Socket InetAddress]
-            [java.io PrintWriter]))
+  (:import [java.net Socket InetAddress]
+           [java.io PrintWriter]
+           [javax.net.ssl SSLSocketFactory]))
 
 (defn connect
-  [host port]
+  [host port ssl?]
   (let [addr (InetAddress/getByName host)
-        sock (Socket. addr (int port))]
+        sock (if ssl?
+               (.createSocket (SSLSocketFactory/getDefault) addr (int port))
+               (Socket. addr (int port)))]
     [sock
      (PrintWriter. (.getOutputStream sock))]))
 
@@ -84,7 +87,8 @@
         token           (str token " ")
         stacktrace-fn   (:stack-trace-fn opts error-to-stacktrace)
         log-ingest-url  (:log-ingest-url opts "data.logentries.com")
-        log-ingest-port (:log-ingest-port opts 80)]
+        log-ingest-port (:log-ingest-port opts 80)
+        ssl?            (:ssl? opts false)]
     {:enabled?   true
      :async?     false
      :min-level  nil
@@ -95,7 +99,7 @@
        (try (let [[sock out] (swap! conn
                                     (fn [conn]
                                       (or (and conn (connection-ok? conn) conn)
-                                          (connect log-ingest-url log-ingest-port))))]
+                                          (connect log-ingest-url log-ingest-port ssl?))))]
               (locking sock
                 (.write ^java.io.Writer out token)
                 (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
