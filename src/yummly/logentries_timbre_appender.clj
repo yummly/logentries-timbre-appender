@@ -4,7 +4,8 @@
   {:author "Ryan Smith (@tanzoniteblack), Mike Sperber (@mikesperber), David Frese (@dfrese)"}
   (:require [cheshire.core :as cheshire]
             [io.aviso.exception]
-            [clojure.string])
+            [clojure.string]
+            [pool.core :as pool])
   (:import [java.net Socket InetAddress]
            [java.io PrintWriter]
            [javax.net.ssl SSLSocketFactory]))
@@ -89,23 +90,27 @@
         log-ingest-url  (:log-ingest-url opts "data.logentries.com")
         log-ingest-port (:log-ingest-port opts 80)
         ssl?            (:ssl? opts false)]
-    {:enabled?   true
-     :async?     false
-     :min-level  nil
-     :rate-limit nil
-     :output-fn  :inherit
-     :fn
-     (fn [data]
-       (try (let [[sock out] (swap! conn
-                                    (fn [conn]
-                                      (or (and conn (connection-ok? conn) conn)
-                                          (connect log-ingest-url log-ingest-port ssl?))))]
-              (locking sock
-                (.write ^java.io.Writer out token)
-                (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
-                     (finally
-                       ;; logstash tcp input plugin: "each event is assumed to be one line of text".
-                       (.write ^java.io.Writer out nl)
-                       (when flush? (.flush ^java.io.Writer out))))))
-         (catch java.io.IOException _
-           nil)))}))
+    (let [cp (pool/get-pool
+              #(connect log-ingest-url log-ingest-port ssl?)
+              :validate connection-ok?)]
+      {:enabled?   true
+       :async?     false
+       :min-level  nil
+       :rate-limit nil
+       :output-fn  :inherit
+       :fn
+       (fn [data]
+         (try
+           (let [[sock out] (pool/borrow cp)]
+             (try
+               (.write ^java.io.Writer out token)
+               (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
+                    (finally
+                      ;; logstash tcp input plugin: "each event is assumed to be one line of text".
+                      (.write ^java.io.Writer out nl)
+                      (when flush? (.flush ^java.io.Writer out))))
+               (finally
+                 (pool/return cp [sock out]))))
+           nil
+           (catch java.io.IOException _
+             nil)))})))

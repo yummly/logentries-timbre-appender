@@ -1,4 +1,4 @@
 language: clojure
-script: lein test-all
+script: clojure -A:test:runner
 notifications:
   email: false
