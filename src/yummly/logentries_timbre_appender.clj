@@ -5,24 +5,13 @@
   (:require [cheshire.core :as cheshire]
             [io.aviso.exception]
             [clojure.string])
-  (:import [java.net Socket InetAddress]
-           [java.io PrintWriter]
-           [javax.net.ssl SSLSocketFactory]))
+  (:import [com.logentries.net AsyncLogger]))
 
-(defn connect
-  [host port ssl?]
-  (let [addr (InetAddress/getByName host)
-        sock (if ssl?
-               (.createSocket (SSLSocketFactory/getDefault) addr (int port))
-               (Socket. addr (int port)))]
-    [sock
-     (PrintWriter. (.getOutputStream sock))]))
-
-(defn connection-ok?
-  [[^Socket sock ^PrintWriter out]]
-  (and (not (.isClosed sock))
-       (.isConnected sock)
-       (not (.checkError out))))
+(defn ^AsyncLogger make-logger [{:keys [token debug?]}]
+  (doto (AsyncLogger.)
+    (.setToken token)
+    (.setSsl true)
+    (.setDebug (boolean debug?))))
 
 (def iso-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
 
@@ -52,10 +41,10 @@
              (catch Exception e
                (remove :omitted errors)))))))
 
-(defn data->json-stream
-  [data writer user-tags stacktrace-fn]
+(defn data->json-line
+  [data user-tags stacktrace-fn]
   ;; Note: this it meant to target the logstash-filter-json; especially "message" and "@timestamp" get a special meaning there.
-  (cheshire/generate-stream
+  (cheshire/generate-string
    (merge user-tags
           (:context data)
           {:level       (:level data)
@@ -66,7 +55,6 @@
            :hostname    (force (:hostname_ data))
            :message     (force (:msg_ data))
            "@timestamp" (:instant data)})
-   writer
    {:date-format iso-format
     :pretty      false}))
 
@@ -84,28 +72,36 @@
   (let [conn            (atom nil)
         flush?          (or (:flush? opts) false)
         nl              "\n"
-        token           (str token " ")
         stacktrace-fn   (:stack-trace-fn opts error-to-stacktrace)
-        log-ingest-url  (:log-ingest-url opts "data.logentries.com")
-        log-ingest-port (:log-ingest-port opts 80)
-        ssl?            (:ssl? opts false)]
-    {:enabled?   true
-     :async?     false
-     :min-level  nil
-     :rate-limit nil
-     :output-fn  :inherit
-     :fn
-     (fn [data]
-       (try (let [[sock out] (swap! conn
-                                    (fn [conn]
-                                      (or (and conn (connection-ok? conn) conn)
-                                          (connect log-ingest-url log-ingest-port ssl?))))]
-              (locking sock
-                (.write ^java.io.Writer out token)
-                (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
-                     (finally
-                       ;; logstash tcp input plugin: "each event is assumed to be one line of text".
-                       (.write ^java.io.Writer out nl)
-                       (when flush? (.flush ^java.io.Writer out))))))
-         (catch java.io.IOException _
-           nil)))}))
+        ssl?            (:ssl? opts false)
+        debug?          (:debug? opts false)]
+    (let [logger                      (make-logger {:token token :debug? debug?})
+          last-error-report-timestamp (atom 0)
+          error-count                 (atom 0)
+          call-count                  (atom 0)]
+      {:enabled?                    true
+       :async?                      false
+       :min-level                   nil
+       :rate-limit                  nil
+       :output-fn                   :inherit
+       :logger                      logger
+       :last-error-report-timestamp last-error-report-timestamp
+       :error-count                 error-count
+       :call-count                  call-count
+       :fn
+       (fn [data]
+         (try
+           (swap! call-count inc)
+           (let [line (data->json-line data (:user-tags opts) stacktrace-fn)]
+             (.addLineToQueue logger line))
+           (catch Exception e
+             (swap! error-count inc)
+             (try
+               (let [now  (System/currentTimeMillis)
+                     then @last-error-report-timestamp]
+                 (when (> (- now then) (* 1000 60))
+                   (when (compare-and-set! last-error-report-timestamp then now)
+                     (binding [*out* *err*]
+                       (printf "ERROR sending data to Logentries: %s\n" e)
+                       (.printStackTrace e)))))
+               (catch Exception _ nil)))))})))
