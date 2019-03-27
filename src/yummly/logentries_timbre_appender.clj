@@ -7,7 +7,7 @@
             [clojure.string]
             [pool.core :as pool])
   (:import [java.net Socket InetAddress]
-           [java.io PrintWriter]
+           [java.io PrintWriter Closeable Writer]
            [javax.net.ssl SSLSocketFactory]))
 
 (defn connect
@@ -92,7 +92,12 @@
         ssl?            (:ssl? opts false)]
     (let [cp (pool/get-pool
               #(connect log-ingest-url log-ingest-port ssl?)
-              :validate connection-ok?)]
+              :validate connection-ok?
+              :destroy (fn [[^Closeable socket ^Closeable writer]]
+                         (try
+                           (some-> writer .close)
+                           (some-> socket .close)
+                           (catch Exception _ nil))))]
       {:enabled?   true
        :async?     false
        :min-level  nil
@@ -101,16 +106,18 @@
        :fn
        (fn [data]
          (try
-           (let [[sock out] (pool/borrow cp)]
-             (try
-               (.write ^java.io.Writer out token)
-               (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
-                    (finally
-                      ;; logstash tcp input plugin: "each event is assumed to be one line of text".
-                      (.write ^java.io.Writer out nl)
-                      (when flush? (.flush ^java.io.Writer out))))
-               (finally
-                 (pool/return cp [sock out]))))
+           (let [pooled (pool/borrow cp)
+                 [sock ^Writer out] pooled]
+             (when out
+               (try
+                 (.write out token)
+                 (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
+                      (finally
+                        ;; logstash tcp input plugin: "each event is assumed to be one line of text".
+                        (.write out nl)
+                        (when flush? (.flush out))))
+                 (finally
+                   (pool/return cp pooled)))))
            nil
            (catch java.io.IOException _
              nil)))})))
