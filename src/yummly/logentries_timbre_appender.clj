@@ -1,28 +1,17 @@
 (ns yummly.logentries-timbre-appender
-  "Appender that sends output to Logentries (https://logentries.com/). Based of the logstash 3rd party appender.
+  "Appender that sends output to Logentries (https://logentries.com/).
    Requires Cheshire (https://github.com/dakrone/cheshire)."
   {:author "Ryan Smith (@tanzoniteblack), Mike Sperber (@mikesperber), David Frese (@dfrese)"}
   (:require [cheshire.core :as cheshire]
             [io.aviso.exception]
             [clojure.string])
-  (:import [java.net Socket InetAddress]
-           [java.io PrintWriter]
-           [javax.net.ssl SSLSocketFactory]))
+  (:import [com.logentries.net AsyncLogger]))
 
-(defn connect
-  [host port ssl?]
-  (let [addr (InetAddress/getByName host)
-        sock (if ssl?
-               (.createSocket (SSLSocketFactory/getDefault) addr (int port))
-               (Socket. addr (int port)))]
-    [sock
-     (PrintWriter. (.getOutputStream sock))]))
-
-(defn connection-ok?
-  [[^Socket sock ^PrintWriter out]]
-  (and (not (.isClosed sock))
-       (.isConnected sock)
-       (not (.checkError out))))
+(defn ^AsyncLogger make-logger [{:keys [token debug?]}]
+  (doto (AsyncLogger.)
+    (.setToken token)
+    (.setSsl true)
+    (.setDebug (boolean debug?))))
 
 (def iso-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
 
@@ -52,10 +41,10 @@
              (catch Exception e
                (remove :omitted errors)))))))
 
-(defn data->json-stream
-  [data writer user-tags stacktrace-fn]
+(defn data->json-line
+  [data user-tags stacktrace-fn]
   ;; Note: this it meant to target the logstash-filter-json; especially "message" and "@timestamp" get a special meaning there.
-  (cheshire/generate-stream
+  (cheshire/generate-string
    (merge user-tags
           (:context data)
           {:level       (:level data)
@@ -66,46 +55,54 @@
            :hostname    (force (:hostname_ data))
            :message     (force (:msg_ data))
            "@timestamp" (:instant data)})
-   writer
    {:date-format iso-format
     :pretty      false}))
 
 (defn logentries-appender
   "Returns a Logentries appender, which will send each event in JSON format to the
-  logentries server. Set `:flush?` to true to flush the writer after every
-  event. If you wish to send additional, custom tags, to logentries on each
+  logentries server.  If you wish to send additional, custom tags, to logentries on each
   logging event, then provide a hash-map in the opts `:user-tags` which will be
   merged into each event.
 
-  Defaults to sending logs to logentries, but the URL data is sent to can be overwritten
-  via `:log-ingest-url` and `:log-ingest-port` to send to any other service that works in
-  the format `<TOKEN> MESSAGE>`, like datadog."
+  This uses com.logentries.net.AsyncLogger, which is the underlying implementation of the log4j and logback appenders from Logentries. That class uses a bounded queue and may drop messages under heavy load. When that happens, it will write error messages to stderr, but only if `:debug?` is `true`. See https://github.com/rapid7/le_java/blob/master/src/main/java/com/logentries/net/AsyncLogger.java.
+
+  If an exception happens during logging, this appender will catch and not rethrow, meeting the standard expectation of a logging library. Exceptions will be logged to stderr at a rate of no more of 1 per minutes per appender. Additional information on the frequency of exxceptions may be found my inspecting the appender (see the fields `:call-count` and `:error-count`.
+
+  Note that `cheshire.core` is used to serialize log messages to json. If something in your `:user-tags` or `:context` is not readily serializable by `cheshire`, this will cause exceptions and those messages *will not* be logged. See https://github.com/dakrone/cheshire#custom-encoders for how to teach `chechire` to encode your custom data."
   [token & [opts]]
   (let [conn            (atom nil)
         flush?          (or (:flush? opts) false)
         nl              "\n"
-        token           (str token " ")
         stacktrace-fn   (:stack-trace-fn opts error-to-stacktrace)
-        log-ingest-url  (:log-ingest-url opts "data.logentries.com")
-        log-ingest-port (:log-ingest-port opts 80)
-        ssl?            (:ssl? opts false)]
-    {:enabled?   true
-     :async?     false
-     :min-level  nil
-     :rate-limit nil
-     :output-fn  :inherit
-     :fn
-     (fn [data]
-       (try (let [[sock out] (swap! conn
-                                    (fn [conn]
-                                      (or (and conn (connection-ok? conn) conn)
-                                          (connect log-ingest-url log-ingest-port ssl?))))]
-              (locking sock
-                (.write ^java.io.Writer out token)
-                (try (data->json-stream data out (:user-tags opts) stacktrace-fn)
-                     (finally
-                       ;; logstash tcp input plugin: "each event is assumed to be one line of text".
-                       (.write ^java.io.Writer out nl)
-                       (when flush? (.flush ^java.io.Writer out))))))
-         (catch java.io.IOException _
-           nil)))}))
+        ssl?            (:ssl? opts false)
+        debug?          (:debug? opts false)]
+    (let [logger                      (make-logger {:token token :debug? debug?})
+          last-error-report-timestamp (atom 0)
+          error-count                 (atom 0)
+          call-count                  (atom 0)]
+      {:enabled?                    true
+       :async?                      false
+       :min-level                   nil
+       :rate-limit                  nil
+       :output-fn                   :inherit
+       :logger                      logger
+       :last-error-report-timestamp last-error-report-timestamp
+       :error-count                 error-count
+       :call-count                  call-count
+       :fn
+       (fn [data]
+         (try
+           (swap! call-count inc)
+           (let [line (data->json-line data (:user-tags opts) stacktrace-fn)]
+             (.addLineToQueue logger line))
+           (catch Exception e
+             (swap! error-count inc)
+             (try
+               (let [now  (System/currentTimeMillis)
+                     then @last-error-report-timestamp]
+                 (when (> (- now then) (* 1000 60))
+                   (when (compare-and-set! last-error-report-timestamp then now)
+                     (binding [*out* *err*]
+                       (printf "ERROR sending data to Logentries: %s\n" e)
+                       (.printStackTrace e)))))
+               (catch Exception _ nil)))))})))
