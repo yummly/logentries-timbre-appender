@@ -2,7 +2,7 @@
  {:1.7  {:extra-deps #:org.clojure {clojure #:mvn {:version "1.7.0"}}},
   :1.8  {:extra-deps #:org.clojure {clojure #:mvn {:version "1.8.0"}}},
   :1.9  {:extra-deps #:org.clojure {clojure #:mvn {:version "1.9.0"}}},
-  :1.10 {:extra-deps #:org.clojure {clojure #:mvn {:version "1.20.0"}}}
+  :1.10 {:extra-deps #:org.clojure {clojure #:mvn {:version "1.10.0"}}}
   :runner
   {:extra-deps
    #:com.cognitect {test-runner
@@ -12,8 +12,7 @@
    :main-opts      ["-m" "cognitect.test-runner" "-d" "test"]},
   :test {:extra-deps  {org.clojure/test.check #:mvn {:version "RELEASE"}}
          :extra-paths ["test"]}
-  :dev  {:jvm-opts ["-Dclojure.spec.skip-macros=true"
-                    "-Dclojure.spec.compile-asserts=true"
+  :dev  {:jvm-opts ["-Dclojure.spec.compile-asserts=true"
                     "-Dclojure.spec.check-asserts=true"
                     "-DTIMBRE_LEVEL=:warn"]}},
  :deps {cheshire                           #:mvn {:version "5.8.0"},
