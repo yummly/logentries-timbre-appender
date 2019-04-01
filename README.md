@@ -15,6 +15,15 @@ A logger for [logentries](https://logentries.com/) for use with [timbre](https:/
                         {:user-tags {:any-random "values you want to add to every message"}})}})
 ```
 
+### Uploading to clojars
+
+* `clojure -A:jar`
+* `clojure -Spom`
+* Edit pom.xml, fix the groupId, artifactId, version
+* `CLOJARS_USERNAME=user CLOJARS_PASSWORD=password clojure -A:deploy`
+
+See [tools.deps tools](https://github.com/clojure/tools.deps.alpha/wiki/Tools) for more information.
+
 ## License
 
 Copyright © 2018 Yummly
