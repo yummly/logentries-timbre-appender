@@ -18,8 +18,7 @@
                                                                                   (keyword "casdf asdf") "dog"}}}
                                                               {:user-data :dog} identity))]
     (is (= (get test-line "message")
-           {"test.data" {"test.data"  5
-                         "casdf.asdf" "dog"}}))
-    (is (= (get test-line "user.data")
+           {"test_data" {"test_data"  5
+                         "casdf_asdf" "dog"}}))
+    (is (= (get test-line "user_data")
            "dog"))))
-
