@@ -13,3 +13,5 @@ pom.xml.asc
 .cpcache
 *~
 /.dir-locals.el
+/.idea/
+/lsp/
