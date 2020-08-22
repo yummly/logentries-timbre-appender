@@ -10,7 +10,10 @@
 (defn ^AsyncLogger make-logger [{:keys [token debug?]}]
   (doto (AsyncLogger.)
     (.setToken token)
-    (.setSsl true)
+    (.setUseDataHub true)
+    (.setDataHubAddr "intake.logs.datadoghq.com")
+    (.setDataHubPort 10514)
+    ;(.setSsl true)
     (.setDebug (boolean debug?))))
 
 (def iso-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
