@@ -48,7 +48,7 @@
   "InsightOps only supports alphanumeric values along with `@`, `$`, `_`, and `.` in keys. This function
   replaces all illegal characters in a string/keyword with a `.`. See https://docs.logentries.com/docs/json#section-kvp-parsing-specification for details."
   [k]
-  (s/replace (name k) illegal-key-characters "_"))
+  (s/replace (name k) illegal-key-characters "."))
 
 (defn data->json-line
   "Create a JSON string to be sent to logentries, will clean keys of illegal characters by applying `clean-key`.
