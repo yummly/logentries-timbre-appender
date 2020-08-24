@@ -1,10 +1,10 @@
 (ns yummly.logentries-timbre-appender
   "Appender that sends output to Logentries (https://logentries.com/).
    Requires Cheshire (https://github.com/dakrone/cheshire)."
-  {:author "Ryan Smith (@tanzoniteblack), Vadim Geshel (@vgeshel)"}
+  {:author "Ryan Smith (@tanzoniteblack), Mike Sperber (@mikesperber), David Frese (@dfrese)"}
   (:require [cheshire.core :as cheshire]
             [io.aviso.exception]
-            [clojure.string :as s])
+            [clojure.string])
   (:import [com.logentries.net AsyncLogger]))
 
 (defn ^AsyncLogger make-logger [{:keys [token debug?]}]
@@ -39,38 +39,25 @@
                         ;; be converted to json
                         (dissoc :properties))
                    errors)
-             (catch Exception _
+             (catch Exception e
                (remove :omitted errors)))))))
 
-(def illegal-key-characters #"[^a-zA-Z0-9@\$\._]")
-
-(defn clean-key
-  "InsightOps only supports alphanumeric values along with `@`, `$`, `_`, and `.` in keys. This function
-  replaces all illegal characters in a string/keyword with a `.`. See https://docs.logentries.com/docs/json#section-kvp-parsing-specification for details."
-  [k]
-  (s/replace (name k) illegal-key-characters "."))
-
 (defn data->json-line
-  "Create a JSON string to be sent to logentries, will clean keys of illegal characters by applying `clean-key`.
-
-   N.B. Cheshire only applies `:key-fn` to keywords, not strings. So if a key is explicitly a string, then it will be passed through as is.
-   While we could use clojure.walk to clean up all keys, it's an order of magnitude slower."
   [data user-tags stacktrace-fn]
   ;; Note: this it meant to target the logstash-filter-json; especially "message" and "@timestamp" get a special meaning there.
   (cheshire/generate-string
-    (merge user-tags
-           (:context data)
-           {:level       (:level data)
-            :namespace   (:?ns-str data)
-            :file        (:?file data)
-            :line        (:?line data)
-            :stacktrace  (stacktrace-fn (:?err data))
-            :hostname    (force (:hostname_ data))
-            :message     (force (:msg_ data))
-            "@timestamp" (:instant data)})
-    {:date-format iso-format
-     :pretty      false
-     :key-fn      clean-key}))
+   (merge user-tags
+          (:context data)
+          {:level       (:level data)
+           :namespace   (:?ns-str data)
+           :file        (:?file data)
+           :line        (:?line data)
+           :stacktrace  (stacktrace-fn (:?err data))
+           :hostname    (force (:hostname_ data))
+           :message     (force (:msg_ data))
+           "@timestamp" (:instant data)})
+   {:date-format iso-format
+    :pretty      false}))
 
 (defn logentries-appender
   "Returns a Logentries appender, which will send each event in JSON format to the
@@ -84,7 +71,11 @@
 
   Note that `cheshire.core` is used to serialize log messages to json. If something in your `:user-tags` or `:context` is not readily serializable by `cheshire`, this will cause exceptions and those messages *will not* be logged. See https://github.com/dakrone/cheshire#custom-encoders for how to teach `chechire` to encode your custom data."
   [token & [opts]]
-  (let [stacktrace-fn   (:stack-trace-fn opts error-to-stacktrace)
+  (let [conn            (atom nil)
+        flush?          (or (:flush? opts) false)
+        nl              "\n"
+        stacktrace-fn   (:stack-trace-fn opts error-to-stacktrace)
+        ssl?            (:ssl? opts false)
         debug?          (:debug? opts false)]
     (let [logger                      (make-logger {:token token :debug? debug?})
           last-error-report-timestamp (atom 0)
