@@ -20,7 +20,7 @@
   :jar    {:extra-deps {pack/pack.alpha         {:git/url "https://github.com/juxt/pack.alpha.git"
                                                  :sha     "8acf80dd4d6e5173585f5c6fec7af28a310f3ed7"}
                         javax.xml.bind/jaxb-api #:mvn {:version "2.2.12"}
-                        org.clojure/clojure     #:mvn {:version "1.10.0"}}
+                        org.clojure/clojure     #:mvn {version "1.10.0"}}
            :main-opts ["-m" "mach.pack.alpha.skinny" "--no-libs"
                        "--project-path" "logentries-timbre-appender.jar"]}},
  :deps {cheshire                           #:mvn {:version "5.8.0"},
