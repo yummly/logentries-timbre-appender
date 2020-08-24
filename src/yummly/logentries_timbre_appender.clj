@@ -87,9 +87,9 @@
         nl              "\n"
         token           (str token " ")
         stacktrace-fn   (:stack-trace-fn opts error-to-stacktrace)
-        log-ingest-url  (:log-ingest-url opts "data.logentries.com")
-        log-ingest-port (:log-ingest-port opts 80)
-        ssl?            (:ssl? opts false)]
+        log-ingest-url  (:log-ingest-url opts "intake.logs.datadoghq.com")
+        log-ingest-port (:log-ingest-port opts 10516)
+        ssl?            (:ssl? opts true)]
     {:enabled?   true
      :async?     false
      :min-level  nil
