@@ -10,3 +10,8 @@ pom.xml.asc
 .hgignore
 .hg/
 *.iml
+.cpcache
+*~
+/.dir-locals.el
+/.idea/
+/lsp/
