@@ -27,5 +27,5 @@
         com.taoensso/timbre                #:mvn {:version "4.10.0"},
         io.aviso/pretty                    #:mvn {:version "0.1.33"},
         pool                               #:mvn {:version "0.2.1"}
-        com.logentries/logentries-appender #:mvn {:version "1.1.38"}
+        com.rapid7/r7insight_java          #:mvn {:version "3.0.6"}
         javax.xml.bind/jaxb-api            #:mvn {:version "2.2.12"}}}

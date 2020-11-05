@@ -5,13 +5,15 @@
   (:require [cheshire.core :as cheshire]
             [io.aviso.exception]
             [clojure.string :as s])
-  (:import [com.logentries.net AsyncLogger]))
+  (:import [com.rapid7.net AsyncLogger LoggerConfiguration$Builder]))
 
-(defn ^AsyncLogger make-logger [{:keys [token debug?]}]
-  (doto (AsyncLogger.)
-    (.setToken token)
-    (.setSsl true)
-    (.setDebug (boolean debug?))))
+(defn ^AsyncLogger make-logger [{:keys [token debug? region]}]
+  (AsyncLogger. (-> (LoggerConfiguration$Builder.)
+                    (.useToken token)
+                    (.useSSL true)
+                    (.runInDebugMode (boolean debug?))
+                    (.inRegion (or region "eu"))
+                    (.build))))
 
 (def iso-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
 
