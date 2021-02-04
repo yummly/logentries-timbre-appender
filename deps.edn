@@ -3,7 +3,7 @@
   {:extra-deps
    #:com.cognitect {test-runner
                     {:git/url
-                     "https://github.com/cognitect-labs/test-runner",
+                     "git@github.com:cognitect-labs/test-runner.git",
                      :sha "76568540e7f40268ad2b646110f237a60295fa3c"}},
    :main-opts      ["-m" "cognitect.test-runner" "-d" "test"]},
   :test   {:extra-deps  {org.clojure/test.check #:mvn {:version "RELEASE"}

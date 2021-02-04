@@ -26,4 +26,4 @@ jobs:
             - ~/.m2
             - ~/.gitlibs
           key: v2-deps-{{ checksum "deps.edn" }}
-      - run: clojure -A:test:runnerf
+      - run: clojure -A:test:runner
