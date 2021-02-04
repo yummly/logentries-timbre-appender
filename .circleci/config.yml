@@ -1,0 +1,29 @@
+# Clojure CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-clojure/ for more details
+version: 2.1
+
+workflows:
+  version: 2.1
+  build:
+    jobs:
+      - test
+
+jobs:
+  test:
+    docker:
+      - image: circleci/clojure:tools-deps-1.10.1.478
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v2-deps-{{ checksum "deps.edn" }}
+            # fallback to using the latest cache if no exact match is found
+            - v2-deps-
+      - run: clojure -Rdev:test:dev:runner -Stree -Srepro -Sforce
+      - save_cache:
+          paths:
+            - ~/.m2
+            - ~/.gitlibs
+          key: v2-deps-{{ checksum "deps.edn" }}
+      - run: clojure -A:test:runnerf
