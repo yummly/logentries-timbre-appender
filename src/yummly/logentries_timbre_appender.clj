@@ -82,7 +82,7 @@
 
   This uses com.logentries.net.AsyncLogger, which is the underlying implementation of the log4j and logback appenders from Logentries. That class uses a bounded queue and may drop messages under heavy load. When that happens, it will write error messages to stderr, but only if `:debug?` is `true`. See https://github.com/rapid7/le_java/blob/master/src/main/java/com/logentries/net/AsyncLogger.java.
 
-  If an exception happens during logging, this appender will catch and not rethrow, meeting the standard expectation of a logging library. Exceptions will be logged to stderr at a rate of no more of 1 per minutes per appender. Additional information on the frequency of exxceptions may be found my inspecting the appender (see the fields `:call-count` and `:error-count`.
+  If an exception happens during logging, this appender will catch and not rethrow, meeting the standard expectation of a logging library. Exceptions will be logged to stderr at a rate of no more of 1 per minutes per appender. Additional information on the frequency of exceptions may be found my inspecting the appender (see the fields `:call-count` and `:error-count`.
 
   Note that `cheshire.core` is used to serialize log messages to json. If something in your `:user-tags` or `:context` is not readily serializable by `cheshire`, this will cause exceptions and those messages *will not* be logged. See https://github.com/dakrone/cheshire#custom-encoders for how to teach `chechire` to encode your custom data."
   [token & [opts]]
