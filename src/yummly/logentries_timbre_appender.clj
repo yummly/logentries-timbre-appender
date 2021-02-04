@@ -5,13 +5,15 @@
   (:require [cheshire.core :as cheshire]
             [io.aviso.exception]
             [clojure.string :as s])
-  (:import [com.logentries.net AsyncLogger]))
+  (:import [com.rapid7.net AsyncLogger LoggerConfiguration$Builder]))
 
-(defn ^AsyncLogger make-logger [{:keys [token debug?]}]
-  (doto (AsyncLogger.)
-    (.setToken token)
-    (.setSsl true)
-    (.setDebug (boolean debug?))))
+(defn ^AsyncLogger make-logger [{:keys [token debug? region]}]
+  (AsyncLogger. (-> (LoggerConfiguration$Builder.)
+                    (.useToken token)
+                    (.useSSL true)
+                    (.runInDebugMode (boolean debug?))
+                    (.inRegion (or region "eu"))
+                    (.build))))
 
 (def iso-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
 
@@ -80,7 +82,7 @@
 
   This uses com.logentries.net.AsyncLogger, which is the underlying implementation of the log4j and logback appenders from Logentries. That class uses a bounded queue and may drop messages under heavy load. When that happens, it will write error messages to stderr, but only if `:debug?` is `true`. See https://github.com/rapid7/le_java/blob/master/src/main/java/com/logentries/net/AsyncLogger.java.
 
-  If an exception happens during logging, this appender will catch and not rethrow, meeting the standard expectation of a logging library. Exceptions will be logged to stderr at a rate of no more of 1 per minutes per appender. Additional information on the frequency of exxceptions may be found my inspecting the appender (see the fields `:call-count` and `:error-count`.
+  If an exception happens during logging, this appender will catch and not rethrow, meeting the standard expectation of a logging library. Exceptions will be logged to stderr at a rate of no more of 1 per minutes per appender. Additional information on the frequency of exceptions may be found my inspecting the appender (see the fields `:call-count` and `:error-count`.
 
   Note that `cheshire.core` is used to serialize log messages to json. If something in your `:user-tags` or `:context` is not readily serializable by `cheshire`, this will cause exceptions and those messages *will not* be logged. See https://github.com/dakrone/cheshire#custom-encoders for how to teach `chechire` to encode your custom data."
   [token & [opts]]
