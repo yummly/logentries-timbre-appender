@@ -1,31 +1,31 @@
 {:aliases
- {:runner
-  {:extra-deps
-   #:com.cognitect {test-runner
-                    {:git/url
-                     "git@github.com:cognitect-labs/test-runner.git",
-                     :sha "76568540e7f40268ad2b646110f237a60295fa3c"}},
-   :main-opts      ["-m" "cognitect.test-runner" "-d" "test"]},
-  :test   {:extra-deps  {org.clojure/test.check #:mvn {:version "RELEASE"}
-                         org.clojure/clojure    #:mvn {:version "1.10.0"}}
-           :extra-paths ["test"]}
-  :dev    {:jvm-opts   ["-Dclojure.spec.compile-asserts=true"
-                        "-Dclojure.spec.check-asserts=true"
-                        "-DTIMBRE_LEVEL=:warn"]
-           :extra-deps {org.clojure/clojure #:mvn {:version "1.10.1"}
-												criterium           #:mvn {:version "0.4.5"}}}
-  :deploy {:extra-deps {deps-deploy #:mvn {:version "RELEASE"}}
-           :main-opts  ["-m" "deps-deploy.deps-deploy" "deploy"
-		                "logentries-timbre-appender.jar"]}
-  :jar    {:extra-deps {pack/pack.alpha         {:git/url "https://github.com/juxt/pack.alpha.git"
-                                                 :sha     "8acf80dd4d6e5173585f5c6fec7af28a310f3ed7"}
-                        javax.xml.bind/jaxb-api #:mvn {:version "2.2.12"}
-                        org.clojure/clojure     #:mvn {:version "1.10.0"}}
-           :main-opts ["-m" "mach.pack.alpha.skinny" "--no-libs"
-                       "--project-path" "logentries-timbre-appender.jar"]}},
- :deps {cheshire                           #:mvn {:version "5.8.0"},
-        com.taoensso/timbre                #:mvn {:version "4.10.0"},
-        io.aviso/pretty                    #:mvn {:version "0.1.33"},
-        pool                               #:mvn {:version "0.2.1"}
-        com.rapid7/r7insight_java          #:mvn {:version "3.0.6"}
-        javax.xml.bind/jaxb-api            #:mvn {:version "2.2.12"}}}
+			 {:runner
+								{:extra-deps
+														#:com.cognitect {test-runner
+																						 {:git/url
+																									 "git@github.com:cognitect-labs/test-runner.git",
+																							:sha "76568540e7f40268ad2b646110f237a60295fa3c"}},
+								 :main-opts ["-m" "cognitect.test-runner" "-d" "test"]},
+				:test   {:extra-deps  {org.clojure/test.check #:mvn {:version "RELEASE"}
+															 org.clojure/clojure    #:mvn {:version "1.10.0"}}
+								 :extra-paths ["test"]}
+				:dev    {:jvm-opts   ["-Dclojure.spec.compile-asserts=true"
+															"-Dclojure.spec.check-asserts=true"
+															"-DTIMBRE_LEVEL=:warn"]
+								 :extra-deps {org.clojure/clojure #:mvn {:version "1.10.1"}
+															criterium           #:mvn {:version "0.4.5"}}}
+				:deploy {:extra-deps {deps-deploy #:mvn {:version "RELEASE"}}
+								 :main-opts  ["-m" "deps-deploy.deps-deploy" "deploy"
+															"logentries-timbre-appender.jar"]}
+				:jar    {:extra-deps {pack/pack.alpha         {:git/url "https://github.com/juxt/pack.alpha.git"
+																											 :sha     "8acf80dd4d6e5173585f5c6fec7af28a310f3ed7"}
+															javax.xml.bind/jaxb-api #:mvn {:version "2.2.12"}
+															org.clojure/clojure     #:mvn {:version "1.10.0"}}
+								 :main-opts  ["-m" "mach.pack.alpha.skinny" "--no-libs"
+															"--project-path" "logentries-timbre-appender.jar"]}},
+ :deps {com.taoensso/timbre       #:mvn {:version "4.10.0"},
+				io.aviso/pretty           #:mvn {:version "0.1.33"},
+				pool                      #:mvn {:version "0.2.1"}
+				com.rapid7/r7insight_java #:mvn {:version "3.0.6"}
+				javax.xml.bind/jaxb-api   #:mvn {:version "2.2.12"}
+				metosin/jsonista          #:mvn {:version "0.3.1"}}}

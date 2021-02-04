@@ -2,7 +2,7 @@
   (:require [yummly.logentries-timbre-appender :as sut]
             [clojure.test :refer :all]
             [clojure.string]
-            [cheshire.core :as cheshire]))
+            [jsonista.core :as j]))
 
 (deftest error-to-stacktrace-test
   (let [test-error   ((fn [] (java.lang.ArithmeticException. "Divide by fake-value")))
@@ -14,9 +14,10 @@
     (is (every? string? (:stack-trace parsed-error)))))
 
 (deftest update-illegal-characters
-  (let [test-line (cheshire/parse-string (sut/data->json-line {:msg_ {:test-data {:test-data             5
-                                                                                  (keyword "casdf asdf") "dog"}}}
-                                                              {:user-data :dog} identity))]
+  (let [test-line (j/read-value (sut/data->json-line (j/object-mapper {:encode-key-fn sut/clean-key})
+                                                     {:msg_ {:test-data {:test-data             5
+                                                                         (keyword "casdf asdf") "dog"}}}
+                                                     {:user-data :dog} identity))]
     (is (= (get test-line "message")
            {"test_data" {"test_data"  5
                          "casdf_asdf" "dog"}}))

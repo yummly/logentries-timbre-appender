@@ -2,7 +2,7 @@
   "Appender that sends output to Logentries (https://logentries.com/).
    Requires Cheshire (https://github.com/dakrone/cheshire)."
   {:author "Ryan Smith (@tanzoniteblack), Vadim Geshel (@vgeshel)"}
-  (:require [cheshire.core :as cheshire]
+  (:require [jsonista.core :as j]
             [io.aviso.exception]
             [clojure.string :as s])
   (:import [com.rapid7.net AsyncLogger LoggerConfiguration$Builder]))
@@ -57,9 +57,9 @@
 
    N.B. Cheshire only applies `:key-fn` to keywords, not strings. So if a key is explicitly a string, then it will be passed through as is.
    While we could use clojure.walk to clean up all keys, it's an order of magnitude slower."
-  [data user-tags stacktrace-fn]
+  [object-mapper data user-tags stacktrace-fn]
   ;; Note: this it meant to target the logstash-filter-json; especially "message" and "@timestamp" get a special meaning there.
-  (cheshire/generate-string
+  (j/write-value-as-string
     (merge user-tags
            (:context data)
            {:level       (:level data)
@@ -70,9 +70,7 @@
             :hostname    (force (:hostname_ data))
             :message     (force (:msg_ data))
             "@timestamp" (:instant data)})
-    {:date-format iso-format
-     :pretty      false
-     :key-fn      clean-key}))
+    object-mapper))
 
 (defn logentries-appender
   "Returns a Logentries appender, which will send each event in JSON format to the
@@ -86,35 +84,35 @@
 
   Note that `cheshire.core` is used to serialize log messages to json. If something in your `:user-tags` or `:context` is not readily serializable by `cheshire`, this will cause exceptions and those messages *will not* be logged. See https://github.com/dakrone/cheshire#custom-encoders for how to teach `chechire` to encode your custom data."
   [token & [opts]]
-  (let [stacktrace-fn   (:stack-trace-fn opts error-to-stacktrace)
-        debug?          (:debug? opts false)]
-    (let [logger                      (make-logger {:token token :debug? debug?})
-          last-error-report-timestamp (atom 0)
-          error-count                 (atom 0)
-          call-count                  (atom 0)]
-      {:enabled?                    true
-       :async?                      false
-       :min-level                   nil
-       :rate-limit                  nil
-       :output-fn                   :inherit
-       :logger                      logger
-       :last-error-report-timestamp last-error-report-timestamp
-       :error-count                 error-count
-       :call-count                  call-count
-       :fn
-       (fn [data]
-         (try
-           (swap! call-count inc)
-           (let [line (data->json-line data (:user-tags opts) stacktrace-fn)]
-             (.addLineToQueue logger line))
-           (catch Exception e
-             (swap! error-count inc)
-             (try
-               (let [now  (System/currentTimeMillis)
-                     then @last-error-report-timestamp]
-                 (when (> (- now then) (* 1000 60))
-                   (when (compare-and-set! last-error-report-timestamp then now)
-                     (binding [*out* *err*]
-                       (printf "ERROR sending data to Logentries: %s\n" e)
-                       (.printStackTrace e)))))
-               (catch Exception _ nil)))))})))
+  (let [stacktrace-fn               (:stack-trace-fn opts error-to-stacktrace)
+        jsonista-object-mapper-opts (j/object-mapper (:jsonist-object-mapper opts {:encode-key-fn clean-key}))
+        debug?                      (:debug? opts false)
+        logger                      (make-logger {:token token :debug? debug?})
+        last-error-report-timestamp (atom 0)
+        error-count                 (atom 0)
+        call-count                  (atom 0)]
+    {:enabled?                    true
+     :async?                      false
+     :min-level                   nil
+     :rate-limit                  nil
+     :output-fn                   :inherit
+     :logger                      logger
+     :last-error-report-timestamp last-error-report-timestamp
+     :error-count                 error-count
+     :call-count                  call-count
+     :fn                          (fn [data]
+                                    (try
+                                      (swap! call-count inc)
+                                      (let [line (data->json-line jsonista-object-mapper-opts data (:user-tags opts) stacktrace-fn)]
+                                        (.addLineToQueue logger line))
+                                      (catch Exception e
+                                        (swap! error-count inc)
+                                        (try
+                                          (let [now  (System/currentTimeMillis)
+                                                then @last-error-report-timestamp]
+                                            (when (> (- now then) (* 1000 60))
+                                              (when (compare-and-set! last-error-report-timestamp then now)
+                                                (binding [*out* *err*]
+                                                  (printf "ERROR sending data to Logentries: %s\n" e)
+                                                  (.printStackTrace e)))))
+                                          (catch Exception _ nil)))))}))
