@@ -1,6 +1,0 @@
-language: generic
-services:
-  - docker
-script: sh -c 'docker run -i --rm -v $(pwd):/work -w /work clojure:openjdk-8-tools-deps-alpine clojure -A:test:runner'
-notifications:
-  email: false
