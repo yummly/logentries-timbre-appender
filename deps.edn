@@ -23,5 +23,5 @@
            com.taoensso/timbre       {:mvn/version "4.10.0"}
            io.aviso/pretty           {:mvn/version "0.1.33"}
            pool/pool                 {:mvn/version "0.2.1"}
-           com.rapid7/r7insight_java {:mvn/version "3.0.6"}
+           com.rapid7/r7insight_java {:mvn/version "3.0.15"}
            javax.xml.bind/jaxb-api   {:mvn/version "2.2.12"}}}
